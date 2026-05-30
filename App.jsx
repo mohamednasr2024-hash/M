@@ -1,8 +1,7 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { db, auth } from "./firebase";
-import { doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import React, { useState } from "react";
+
+const ADMIN_EMAIL = "admin@nefertari.com";
+const ADMIN_PASSWORD = "123456";
 
 const defaultData = {
   companyName: "NEFERTARI",
@@ -12,115 +11,266 @@ const defaultData = {
   email: "neferclean@gmail.com",
   heroTitle: "جاهزون لخدمتك",
   heroText: "للطلب أو الاستفسار تواصل معنا الآن.",
-  services: "خادمات للمبيت شهرياً\nتنظيف منزلي\nخدمات ضيافة"
 };
 
-function Website() {
-  const [data, setData] = useState(defaultData);
-
-  useEffect(() => {
-    async function load() {
-      const snap = await getDoc(doc(db, "settings", "website"));
-      if (snap.exists()) setData({ ...defaultData, ...snap.data() });
-      else await setDoc(doc(db, "settings", "website"), defaultData);
-    }
-    load();
-  }, []);
-
-  async function sendOrder() {
-    await addDoc(collection(db, "orders"), {
-      name: "طلب جديد من الموقع",
-      phone: data.phone,
-      status: "جديد",
-      createdAt: serverTimestamp()
-    });
-    window.open(`https://wa.me/${data.whatsapp}`, "_blank");
-  }
-
-  return (
-    <div className="site">
-      <header>
-        <div><h1>{data.companyName}</h1><p>{data.arabicName}</p></div>
-        <nav><a>الرئيسية</a><a>خدماتنا</a><a>تواصل معنا</a><Link to="/admin">لوحة التحكم</Link></nav>
-        <button onClick={sendOrder}>طلب خدمة</button>
-      </header>
-      <main className="hero">
-        <div className="box">
-          <span>تواصل معنا</span>
-          <h2>{data.heroTitle}</h2>
-          <p>{data.heroText}</p>
-          <div className="contact"><b>📞 {data.phone}</b><b>✉ {data.email}</b></div>
-          <button onClick={sendOrder}>اطلب الخدمة الآن</button>
-        </div>
-      </main>
-      <a className="whatsapp" href={`https://wa.me/${data.whatsapp}`} target="_blank">💬</a>
-      <footer>© 2026 {data.arabicName}</footer>
-    </div>
+export default function App() {
+  const [data, setData] = useState(
+    JSON.parse(localStorage.getItem("nefertariData")) || defaultData
   );
-}
 
-function Admin() {
-  const [user, setUser] = useState(null);
   const [login, setLogin] = useState({ email: "", password: "" });
-  const [data, setData] = useState(defaultData);
-  const [orders, setOrders] = useState([]);
+  const [isLogged, setIsLogged] = useState(
+    localStorage.getItem("adminLogged") === "yes"
+  );
 
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  useEffect(() => {
-    async function load() {
-      const snap = await getDoc(doc(db, "settings", "website"));
-      if (snap.exists()) setData({ ...defaultData, ...snap.data() });
-      const q = await getDocs(collection(db, "orders"));
-      setOrders(q.docs.map(d => ({ id: d.id, ...d.data() })));
-    }
-    if (user) load();
-  }, [user]);
-
-  async function doLogin(e) {
-    e.preventDefault();
-    await signInWithEmailAndPassword(auth, login.email, login.password);
-  }
-
-  async function save() {
-    await setDoc(doc(db, "settings", "website"), data);
+  function saveData() {
+    localStorage.setItem("nefertariData", JSON.stringify(data));
     alert("تم حفظ التعديلات بنجاح");
   }
 
-  if (!user) return (
-    <div className="admin-login">
-      <form onSubmit={doLogin}>
-        <h2>تسجيل دخول لوحة التحكم</h2>
-        <input placeholder="Email" onChange={e=>setLogin({...login,email:e.target.value})}/>
-        <input placeholder="Password" type="password" onChange={e=>setLogin({...login,password:e.target.value})}/>
-        <button>دخول</button>
-      </form>
-    </div>
-  );
+  function loginAdmin(e) {
+    e.preventDefault();
+    if (login.email === ADMIN_EMAIL && login.password === ADMIN_PASSWORD) {
+      localStorage.setItem("adminLogged", "yes");
+      setIsLogged(true);
+    } else {
+      alert("بيانات الدخول غير صحيحة");
+    }
+  }
+
+  if (window.location.pathname === "/admin") {
+    if (!isLogged) {
+      return (
+        <div style={styles.loginPage}>
+          <form onSubmit={loginAdmin} style={styles.loginBox}>
+            <h2>تسجيل دخول لوحة التحكم</h2>
+            <input
+              placeholder="Email"
+              onChange={(e) => setLogin({ ...login, email: e.target.value })}
+              style={styles.input}
+            />
+            <input
+              placeholder="Password"
+              type="password"
+              onChange={(e) => setLogin({ ...login, password: e.target.value })}
+              style={styles.input}
+            />
+            <button style={styles.goldBtn}>دخول</button>
+          </form>
+        </div>
+      );
+    }
+
+    return (
+      <div style={styles.adminPage}>
+        <h1>لوحة تحكم نفرتاري</h1>
+
+        <label>اسم الشركة</label>
+        <input style={styles.input} value={data.companyName}
+          onChange={(e) => setData({ ...data, companyName: e.target.value })} />
+
+        <label>اسم الشركة بالعربي</label>
+        <input style={styles.input} value={data.arabicName}
+          onChange={(e) => setData({ ...data, arabicName: e.target.value })} />
+
+        <label>رقم الهاتف</label>
+        <input style={styles.input} value={data.phone}
+          onChange={(e) => setData({ ...data, phone: e.target.value })} />
+
+        <label>رقم واتساب</label>
+        <input style={styles.input} value={data.whatsapp}
+          onChange={(e) => setData({ ...data, whatsapp: e.target.value })} />
+
+        <label>الإيميل</label>
+        <input style={styles.input} value={data.email}
+          onChange={(e) => setData({ ...data, email: e.target.value })} />
+
+        <label>العنوان الرئيسي</label>
+        <input style={styles.input} value={data.heroTitle}
+          onChange={(e) => setData({ ...data, heroTitle: e.target.value })} />
+
+        <label>النص</label>
+        <textarea style={styles.textarea} value={data.heroText}
+          onChange={(e) => setData({ ...data, heroText: e.target.value })} />
+
+        <button onClick={saveData} style={styles.saveBtn}>حفظ التعديلات</button>
+
+        <a href="/" style={styles.previewBtn}>عرض الموقع</a>
+      </div>
+    );
+  }
 
   return (
-    <div className="admin">
-      <aside><h2>نفرتاري</h2><a>الرئيسية</a><a>إعدادات الموقع</a><a>الطلبات</a><button onClick={()=>signOut(auth)}>خروج</button></aside>
-      <section>
-        <h1>لوحة التحكم</h1>
-        <div className="cards"><div>الطلبات <b>{orders.length}</b></div><div>الهاتف <b>{data.phone}</b></div><div>واتساب <b>{data.whatsapp}</b></div></div>
-        <div className="panel">
-          <h2>تعديل بيانات الموقع</h2>
-          <label>اسم الشركة الإنجليزي</label><input value={data.companyName} onChange={e=>setData({...data,companyName:e.target.value})}/>
-          <label>اسم الشركة العربي</label><input value={data.arabicName} onChange={e=>setData({...data,arabicName:e.target.value})}/>
-          <label>الهاتف</label><input value={data.phone} onChange={e=>setData({...data,phone:e.target.value})}/>
-          <label>واتساب</label><input value={data.whatsapp} onChange={e=>setData({...data,whatsapp:e.target.value})}/>
-          <label>الإيميل</label><input value={data.email} onChange={e=>setData({...data,email:e.target.value})}/>
-          <label>العنوان الرئيسي</label><input value={data.heroTitle} onChange={e=>setData({...data,heroTitle:e.target.value})}/>
-          <label>النص</label><textarea value={data.heroText} onChange={e=>setData({...data,heroText:e.target.value})}/>
-          <button onClick={save}>حفظ التعديلات</button>
+    <div style={styles.site}>
+      <header style={styles.header}>
+        <button style={styles.goldBtn}>طلب خدمة</button>
+
+        <nav style={styles.nav}>
+          <a href="/" style={styles.link}>الرئيسية</a>
+          <a href="#" style={styles.link}>خدماتنا</a>
+          <a href="#" style={styles.link}>تواصل معنا</a>
+          <a href="/admin" style={styles.link}>لوحة التحكم</a>
+        </nav>
+
+        <div>
+          <h1 style={styles.logo}>{data.companyName}</h1>
+          <p style={styles.subLogo}>{data.arabicName}</p>
         </div>
-        <div className="panel"><h2>الطلبات</h2>{orders.map(o => <p key={o.id}>#{o.id.slice(0,6)} - {o.name} - {o.status}</p>)}</div>
-      </section>
+      </header>
+
+      <main style={styles.main}>
+        <div style={styles.card}>
+          <h3 style={styles.goldText}>تواصل معنا</h3>
+          <h1 style={styles.heroTitle}>{data.heroTitle}</h1>
+          <p style={styles.heroText}>{data.heroText}</p>
+
+          <div style={styles.contact}>
+            <span>{data.email} ✉</span>
+            <span>{data.phone} 📞</span>
+          </div>
+
+          <a href={`https://wa.me/${data.whatsapp}`} target="_blank" style={styles.goldBtn}>
+            اطلب الخدمة الآن
+          </a>
+        </div>
+      </main>
+
+      <a href={`https://wa.me/${data.whatsapp}`} target="_blank" style={styles.whatsapp}>
+        💬
+      </a>
+
+      <footer style={styles.footer}>© 2026 {data.arabicName}</footer>
     </div>
   );
 }
 
-export default function App() {
-  return <BrowserRouter><Routes><Route path="/" element={<Website />} /><Route path="/admin" element={<Admin />} /></Routes></BrowserRouter>;
-}
+const styles = {
+  site: {
+    minHeight: "100vh",
+    background: "#06264a",
+    color: "white",
+    direction: "rtl",
+    fontFamily: "Arial",
+  },
+  header: {
+    background: "#041f3d",
+    padding: "35px 70px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  logo: { color: "#e5c05b", fontSize: 48, margin: 0 },
+  subLogo: { color: "#e5c05b", margin: 0 },
+  nav: { display: "flex", gap: 35 },
+  link: { color: "white", textDecoration: "none", fontSize: 20 },
+  goldBtn: {
+    background: "#e5c05b",
+    color: "#000",
+    padding: "16px 35px",
+    borderRadius: 15,
+    border: 0,
+    fontWeight: "bold",
+    fontSize: 18,
+    textDecoration: "none",
+    cursor: "pointer",
+  },
+  main: {
+    minHeight: "70vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  card: {
+    width: "60%",
+    background: "rgba(255,255,255,.06)",
+    border: "1px solid rgba(255,255,255,.15)",
+    borderRadius: 28,
+    padding: 70,
+    textAlign: "center",
+  },
+  goldText: { color: "#e5c05b", fontSize: 26 },
+  heroTitle: { fontSize: 60 },
+  heroText: { fontSize: 26 },
+  contact: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 20,
+    margin: "30px 0",
+  },
+  whatsapp: {
+    position: "fixed",
+    left: 25,
+    bottom: 25,
+    width: 80,
+    height: 80,
+    borderRadius: "50%",
+    background: "#25D366",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 40,
+    textDecoration: "none",
+  },
+  footer: {
+    background: "#03182e",
+    textAlign: "center",
+    padding: 25,
+  },
+  loginPage: {
+    minHeight: "100vh",
+    background: "#06264a",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    direction: "rtl",
+    fontFamily: "Arial",
+  },
+  loginBox: {
+    background: "white",
+    padding: 40,
+    borderRadius: 20,
+    display: "grid",
+    gap: 15,
+    width: 380,
+    textAlign: "center",
+  },
+  adminPage: {
+    direction: "rtl",
+    fontFamily: "Arial",
+    padding: 40,
+    background: "#f4f6fa",
+    minHeight: "100vh",
+    display: "grid",
+    gap: 12,
+  },
+  input: {
+    padding: 15,
+    borderRadius: 10,
+    border: "1px solid #ddd",
+    fontSize: 16,
+  },
+  textarea: {
+    padding: 15,
+    borderRadius: 10,
+    border: "1px solid #ddd",
+    fontSize: 16,
+    minHeight: 100,
+  },
+  saveBtn: {
+    background: "#16a34a",
+    color: "white",
+    padding: 16,
+    borderRadius: 12,
+    border: 0,
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  previewBtn: {
+    background: "#041f3d",
+    color: "white",
+    textAlign: "center",
+    padding: 16,
+    borderRadius: 12,
+    textDecoration: "none",
+  },
+};
