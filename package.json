@@ -9,8 +9,7 @@
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "firebase": "latest",
-    "react-router-dom": "latest"
+    "xlsx": "latest"
   },
   "devDependencies": {}
 }
